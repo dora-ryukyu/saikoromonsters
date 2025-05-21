@@ -36,10 +36,10 @@
 │   └── 闘技場.png
 ├── sounds/              # 効果音、BGMなどの音声ファイル (推奨)
 │   ├── battle_bgm.mp3   # 戦闘中のBGM
-│   ├── dice_roll.wav    # サイコロを振る音
-│   ├── skill_attack.wav # 攻撃技の効果音
-│   ├── skill_heal.wav   # 回復技の効果音
-│   ├── damage.wav       # ダメージを受けた時の音
+│   ├── dice_roll.mp3    # サイコロを振る音
+│   ├── skill_attack.mp3 # 攻撃技の効果音
+│   ├── skill_heal.mp3   # 回復技の効果音
+│   ├── damage.mp3       # ダメージを受けた時の音
 │   ├── win.mp3          # 勝利時のBGM/効果音
 │   └── lose.mp3         # 敗北時のBGM/効果音
 └── index.html           # ゲーム本体のHTMLファイル
@@ -69,5 +69,4 @@
 * 新しいモンスターの追加
 * 新しい技・特性の追加
 * CPUの思考ルーチンの強化
-* サウンドエフェクト・BGMの追加
 * アニメーション・エフェクトの強化
