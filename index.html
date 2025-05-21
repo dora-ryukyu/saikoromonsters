@@ -240,28 +240,26 @@
             top: 0;
             width: 100%;
             height: 100%;
-            overflow: auto; /* Changed to auto to allow scrolling if content overflows */
+            overflow: auto; 
             background-color: rgba(0,0,0,0.7);
-            /* justify-content: center; /* Removed for scrolling */
-            /* align-items: center; /* Removed for scrolling */
-            padding-top: 20px; /* Add some padding at the top */
-            padding-bottom: 20px; /* Add some padding at the bottom */
+            padding-top: 20px; 
+            padding-bottom: 20px; 
         }
         .modal-content {
-            background-color: #1e293b; /* Darker blue-gray */
+            background-color: #1e293b; 
             margin: auto;
             padding: 15px;
-            border: 1px solid #4a5568; /* Gray border */
+            border: 1px solid #4a5568; 
             width: 90%;
-            max-width: 450px; /* Slightly wider for cards */
+            max-width: 450px; 
             border-radius: 10px;
             text-align: center;
             box-shadow: 0 5px 15px rgba(0,0,0,0.5);
         }
         .modal-content h1 {
-            font-size: 2em; /* Larger title */
+            font-size: 2em; 
             margin-bottom: 10px;
-            color: #f0ad4e; /* Orange title */
+            color: #f0ad4e; 
             font-weight: bold;
         }
         .modal-content h2 {
@@ -269,7 +267,7 @@
             margin-bottom: 15px;
             font-size: 1.2em;
         }
-        .modal-content button { /* General button style in modal */
+        .modal-content button { 
             background-color: #5cb85c;
             color: white;
             border: none;
@@ -280,15 +278,14 @@
             margin-top: 15px;
         }
         
-        /* Character Selection Area */
         #characterChoices {
             display: flex;
-            flex-direction: column; /* Stack cards vertically */
-            gap: 15px; /* Space between cards */
-            align-items: center; /* Center cards horizontally */
-            max-height: 70vh; /* Limit height to allow scrolling within modal */
-            overflow-y: auto; /* Allow vertical scrolling for cards */
-            padding-right: 10px; /* For scrollbar */
+            flex-direction: column; 
+            gap: 15px; 
+            align-items: center; 
+            max-height: 70vh; 
+            overflow-y: auto; 
+            padding-right: 10px; 
         }
         #characterChoices::-webkit-scrollbar {
             width: 8px;
@@ -300,15 +297,15 @@
 
 
         .character-card {
-            background-color: rgba(44, 62, 80, 0.85); /* Darker card background */
-            border: 1px solid #374151; /* Darker gray border */
+            background-color: rgba(44, 62, 80, 0.85); 
+            border: 1px solid #374151; 
             border-radius: 8px;
             padding: 12px;
-            width: 100%; /* Full width within the choices area */
-            max-width: 380px; /* Max card width */
+            width: 100%; 
+            max-width: 380px; 
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             text-align: left;
-            color: #e0e0e0; /* Lighter text color */
+            color: #e0e0e0; 
             cursor: pointer;
             transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
         }
@@ -318,23 +315,23 @@
         }
         .character-card img.card-char-image {
             width: 100%;
-            max-height: 180px; /* Adjust as needed */
-            object-fit: contain; /* Changed to contain to show full image */
+            max-height: 180px; 
+            object-fit: contain; 
             border-radius: 6px;
             margin-bottom: 10px;
-            background-color: rgba(0,0,0,0.2); /* Slight background for transparent PNGs */
+            background-color: rgba(0,0,0,0.2); 
         }
         .character-card h3.card-char-name {
             font-size: 1.4em;
             font-weight: bold;
-            color: #f0ad4e; /* Orange name */
+            color: #f0ad4e; 
             margin-bottom: 8px;
             text-align: center;
         }
         .card-section-title {
             font-size: 0.9em;
             font-weight: bold;
-            color: #a0aec0; /* Lighter gray for section titles */
+            color: #a0aec0; 
             margin-top: 10px;
             margin-bottom: 4px;
             border-bottom: 1px solid #4a5568;
@@ -459,7 +456,6 @@
     </div>
 
     <script>
-        // Immediately Invoked Function Expression (IIFE) to avoid global scope pollution
         (function() {
             // --- DOM Elements ---
             const opponentNameEl = document.getElementById('opponentName');
@@ -484,8 +480,8 @@
             const diceDisplayEl = document.getElementById('diceDisplay');
             const rollDiceButtonEl = document.getElementById('rollDiceButton');
             const useLuckButtonEl = document.getElementById('useLuckButton');
-            const confirmSkillButtonEl = document.getElementById('confirmSkillButton'); 
-            const luckPointsCountEl = document.getElementById('luckPointsCount'); 
+            const confirmSkillButtonEl = document.getElementById('confirmSkillButton');
+            const luckPointsCountEl = document.getElementById('luckPointsCount');
 
             const characterSelectionModalEl = document.getElementById('characterSelectionModal');
             const characterChoicesEl = document.getElementById('characterChoices');
@@ -493,12 +489,54 @@
             const gameOverMessageEl = document.getElementById('gameOverMessage');
             const playAgainButtonEl = document.getElementById('playAgainButton');
 
-            // --- Character Data ---
+
+            // --- Sound Files ---
+            const sounds = {
+                battleBGM: 'sounds/battle_bgm.mp3',
+                diceRoll: 'sounds/dice_roll.mp3',
+                skillAttack: 'sounds/skill_attack.mp3',
+                skillHeal: 'sounds/skill_heal.mp3',
+                damage: 'sounds/damage.mp3',
+                win: 'sounds/win.mp3',
+                lose: 'sounds/lose.mp3'
+            };
+            let currentBGM = null;
+
+            function playSoundEffect(soundFile) {
+                try {
+                    const audio = new Audio(soundFile);
+                    audio.play().catch(e => console.warn(`効果音の再生に失敗: ${soundFile}`, e));
+                } catch (e) {
+                    console.warn(`効果音の読み込み/再生エラー: ${soundFile}`, e);
+                }
+            }
+
+            function playBGM(soundFile, loop = true) {
+                stopBGM(); // Stop any existing BGM
+                try {
+                    currentBGM = new Audio(soundFile);
+                    currentBGM.loop = loop;
+                    currentBGM.play().catch(e => console.warn(`BGMの再生に失敗: ${soundFile}`, e));
+                } catch (e) {
+                    console.warn(`BGMの読み込み/再生エラー: ${soundFile}`, e);
+                }
+            }
+
+            function stopBGM() {
+                if (currentBGM) {
+                    currentBGM.pause();
+                    currentBGM.currentTime = 0;
+                    currentBGM = null;
+                }
+            }
+
+
+            // --- Character Data (imageFile paths are 'images/filename.png') ---
             const onImageError = (e) => {
                 e.target.alt = `${e.target.alt.replace('画像', '')}読込失敗`;
                 e.target.style.backgroundColor = '#444';
                 e.target.style.border = '1px dashed #888';
-                e.target.src = 'https://placehold.co/300x225/333333/FFFFFF?text=' + encodeURIComponent(e.target.alt.replace('画像','')); // Adjusted placeholder size
+                e.target.src = 'https://placehold.co/300x225/333333/FFFFFF?text=' + encodeURIComponent(e.target.alt.replace('画像',''));
             };
             
             const characters = {
@@ -613,6 +651,7 @@
                     messageLogAreaEl.scrollTop = messageLogAreaEl.scrollHeight;
                 },
                 updateHpUI: function(character, hpBarEl, hpTextEl) {
+                    // ... (same as before)
                     if (!character) return; 
                     const percentage = (character.hp / character.maxHp) * 100;
                     hpBarEl.style.width = percentage + '%';
@@ -622,6 +661,7 @@
                     else hpBarEl.className = 'hp-bar';
                 },
                 updateCharacterUI: function() {
+                    // ... (same as before)
                     if (!player || !opponent) return; 
 
                     playerNameEl.textContent = player.name;
@@ -654,7 +694,8 @@
                     }
                 },
                 updateStatusIcons: function(character, iconsEl) {
-                    if (!character) return;
+                    // ... (same as before)
+                     if (!character) return;
                     iconsEl.innerHTML = ''; 
                     character.statusConditions.forEach(status => {
                         const iconSpan = document.createElement('span');
@@ -673,6 +714,7 @@
                 },
                 _animateDiceRoll: function(isCPU, callback) { 
                     if (!gameActive) return;
+                    playSoundEffect(sounds.diceRoll); // Play dice roll sound
                     let animationDuration = 1000; 
                     let animationInterval = 50; 
                     let elapsed = 0;
@@ -696,12 +738,13 @@
                     }, animationInterval);
                 },
                 logSkillDetails: function(skill, diceRoll) {
+                    // ... (same as before)
                     if (skill) {
                         let skillInfo = `注目：[${diceRoll}] ${skill.name} (${skill.type})`;
-                        if (skill.power !== undefined) { // Check if power exists
+                        if (skill.power !== undefined) { 
                             skillInfo += ` - 威力: ${skill.power}`;
                             if (skill.hits) skillInfo += `x${skill.hits}`;
-                        } else if (skill.heal !== undefined) { // Check if heal exists
+                        } else if (skill.heal !== undefined) { 
                             skillInfo += ` - 回復量: ${skill.heal}`;
                         } else if (skill.dotDamage !== undefined && skill.dotTurns !== undefined) {
                             skillInfo += ` - ${skill.dotDamage}ダメージ/${skill.dotTurns}ターン`;
@@ -713,7 +756,8 @@
                     }
                 },
 
-                rollDice: function() { // Player's roll
+                rollDice: function() { 
+                    // ... (same as before, _animateDiceRoll already plays sound)
                     if (!gameActive || currentPlayer !== player || diceRollInterval) return; 
 
                     this.logMessage(`${player.name}がサイコロを振ります...`);
@@ -739,8 +783,9 @@
                         useLuckButtonEl.disabled = player.luckPoints <= 0;
                     });
                 },
-                useLuck: function() { // Player's luck usage
-                    if (!gameActive || currentPlayer !== player || player.luckPoints <= 0 || diceRollInterval) return;
+                useLuck: function() { 
+                    // ... (same as before, _animateDiceRoll already plays sound)
+                     if (!gameActive || currentPlayer !== player || player.luckPoints <= 0 || diceRollInterval) return;
 
                     player.luckPoints--;
                     this.logMessage(`${player.name}はラックポイントを1使用してサイコロを振り直します...`);
@@ -763,8 +808,9 @@
                         useLuckButtonEl.disabled = player.luckPoints <= 0;
                     });
                 },
-                confirmSkill: function() { // Player confirms skill
-                    if (!gameActive || currentPlayer !== player || currentDiceRoll === undefined || diceRollInterval) return;
+                confirmSkill: function() { 
+                    // ... (same as before)
+                     if (!gameActive || currentPlayer !== player || currentDiceRoll === undefined || diceRollInterval) return;
                     
                     confirmSkillButtonEl.disabled = true;
                     useLuckButtonEl.disabled = true;
@@ -777,13 +823,21 @@
                 },
                 useSkill: function(attacker, defender, diceResult) {
                     if (!gameActive) return;
-
                     const skill = attacker.skills[diceResult];
-                    if (skill && typeof skill.effect === 'function') { 
+
+                    if (skill && typeof skill.effect === 'function') {
                         this.logMessage(`${attacker.name}の技「${skill.name}」(${skill.type})が発動！`);
-                        if (attacker === opponent) { 
+                        if (attacker === opponent) {
                              this.logMessage(` > ${skill.description}`);
                         }
+                        // Play sound based on skill type
+                        if (skill.type === "攻撃") {
+                            playSoundEffect(sounds.skillAttack);
+                        } else if (skill.type === "回復") {
+                            playSoundEffect(sounds.skillHeal);
+                        }
+                        // Add more conditions for other skill types if needed
+
                         skill.effect(attacker, defender, this); 
                         this.updateCharacterUI(); 
                         if (this.checkGameOver()) return; 
@@ -799,7 +853,9 @@
                     }
                 },
                 dealDamage: function(target, amount, attacker, isRecoil = false) {
+                    // ... (play damage sound)
                     if (!target || !attacker) return;
+                    playSoundEffect(sounds.damage); // Play damage sound
                     let actualDamage = amount;
                     
                     if (attacker.id === 'volfang' && attacker.trait.name === "闘争本能" && attacker.hp <= attacker.maxHp / 2 && !isRecoil) {
@@ -833,12 +889,15 @@
                     this.updateHpUI(target, target === player ? playerHpBarEl : opponentHpBarEl, target === player ? playerHpTextEl : opponentHpTextEl);
                 },
                 healDamage: function(target, amount) {
+                    // ... (play heal sound if different from skillHeal)
                     if (!target) return;
+                    // playSoundEffect(sounds.skillHeal); // Already played in useSkill if type is 回復
                     target.hp = Math.min(target.maxHp, target.hp + amount);
                     this.logMessage(`${target.name}のHPが ${amount} 回復した！`);
                     this.updateHpUI(target, target === player ? playerHpBarEl : opponentHpBarEl, target === player ? playerHpTextEl : opponentHpTextEl);
                 },
                 addStatus: function(character, status) { 
+                    // ... (same as before)
                     if (!character) return;
                     const existingStatus = character.statusConditions.find(s => s.name === status.name);
                     if (existingStatus) {
@@ -849,6 +908,7 @@
                     this.updateStatusIcons(character, character === player ? playerStatusIconsEl : opponentStatusIconsEl);
                 },
                 applyEndOfTurnEffects: function(character) {
+                    // ... (same as before)
                     if (!character || !character.statusConditions) return true; 
                     const effectsToApply = [...character.statusConditions]; 
                     
@@ -867,7 +927,8 @@
                     return true; 
                 },
                 checkGameOver: function() {
-                    if (!player || !opponent) return false;
+                    // ... (same as before)
+                     if (!player || !opponent) return false;
                     if (player.hp <= 0) {
                         this.endGame(`${opponent.name}の勝利！`);
                         return true;
@@ -879,7 +940,15 @@
                     return false;
                 },
                 endGame: function(message) {
+                    // ... (stop BGM, play win/lose sound)
                     gameActive = false;
+                    stopBGM();
+                    if (player && message.includes(player.name)) { // Player wins (check if player exists)
+                        playSoundEffect(sounds.win);
+                    } else { // Player loses or game ends for other reasons
+                        playSoundEffect(sounds.lose);
+                    }
+
                     if (diceRollInterval) { 
                         clearInterval(diceRollInterval);
                         diceRollInterval = null;
@@ -894,6 +963,7 @@
                     confirmSkillButtonEl.disabled = true;
                 },
                 startTurn: function() {
+                    // ... (same as before)
                     if (!gameActive) return;
                     turnCount++;
                     currentDiceRoll = undefined; 
@@ -940,6 +1010,7 @@
                     }
                 },
                 applyPreTurnStatusEffects: function(character) {
+                    // ... (same as before)
                     if (!character || !character.statusConditions) return true;
                     let canAct = true;
                     const actionStoppingStatus = character.statusConditions.find(
@@ -961,6 +1032,7 @@
                     return canAct;
                 },
                 endTurn: function() {
+                    // ... (same as before)
                     if (!gameActive) return;
                     if (currentPlayer === player) {
                         rollDiceButtonEl.classList.add('hidden');
@@ -980,6 +1052,7 @@
                     this.startTurn();
                 },
                 cpuTurn: function() {
+                    // ... (same as before, _animateDiceRoll plays sound)
                     if (!gameActive || !opponent || !player || diceRollInterval) return; 
                     
                     this.logMessage(`${opponent.name}がサイコロを振ります...`);
@@ -1022,6 +1095,7 @@
                     });
                 },
                 initializeGame: function(playerCharId, opponentCharId) {
+                    // ... (play BGM)
                     player = cloneCharacter(playerCharId);
                     opponent = cloneCharacter(opponentCharId);
 
@@ -1034,6 +1108,8 @@
                     turnCount = 0;
                     gameActive = true;
                     currentDiceRoll = undefined;
+
+                    playBGM(sounds.battleBGM, true); // Start BGM
 
                     messageLogAreaEl.innerHTML = ''; 
                     this.logMessage("ゲーム開始！");
@@ -1065,7 +1141,8 @@
                 },
 
                 setupCharacterSelection: function() {
-                    characterChoicesEl.innerHTML = ''; // Clear previous cards
+                    // ... (same as before)
+                    characterChoicesEl.innerHTML = ''; 
                     Object.values(characters).forEach(char => {
                         const card = document.createElement('div');
                         card.className = 'character-card';
@@ -1077,7 +1154,7 @@
 
                         let skillsHtml = '<ul>';
                         char.skills.forEach((skill, index) => {
-                            if (skill) { // index 0 is null
+                            if (skill) { 
                                 let skillDetail = `${index}: ${skill.name}`;
                                 if (skill.power) skillDetail += ` (威力:${skill.power})`;
                                 else if (skill.heal) skillDetail += ` (回復:${skill.heal})`;
@@ -1112,7 +1189,10 @@
             rollDiceButtonEl.addEventListener('click', () => game.rollDice()); 
             useLuckButtonEl.addEventListener('click', () => game.useLuck()); 
             confirmSkillButtonEl.addEventListener('click', () => game.confirmSkill()); 
-            playAgainButtonEl.addEventListener('click', () => game.setupCharacterSelection());
+            playAgainButtonEl.addEventListener('click', () => {
+                stopBGM(); // Stop BGM before restarting
+                game.setupCharacterSelection();
+            });
 
             // --- Initialize ---
             game.setupCharacterSelection();
