@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>サイコロモンスターズ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-image: url('images/闘技場.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        /* Area Styling */
+        .info-area, .character-display-area, .message-log-area, .command-area {
+            padding: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            box-sizing: border-box;
+        }
+        .info-area:last-child, .command-area {
+            border-bottom: none;
+        }
+
+        .info-area {
+            height: 10%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .character-stats {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            flex-grow: 1;
+            padding-left: 8px;
+        }
+        .character-stats .name {
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        .hp-bar-container {
+            width: 100%;
+            height: 18px;
+            background-color: #555;
+            border-radius: 9px;
+            overflow: hidden;
+            margin-top: 4px;
+            border: 1px solid #333;
+        }
+        .hp-bar {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 100%;
+            transition: width 0.5s ease-in-out;
+            border-radius: 9px 0 0 9px;
+        }
+        .hp-bar.low { background-color: #f44336; }
+        .hp-bar.medium { background-color: #ffeb3b; }
+
+        .status-icons img, .thumbnail img {
+            width: 30px;
+            height: 30px;
+            margin-left: 4px;
+            border-radius: 4px;
+            background-color: rgba(255,255,255,0.1);
+        }
+        .thumbnail img {
+             width: 50px; height: 38px;
+        }
+
+        .character-display-area {
+            height: 22%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        .character-display-area img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            filter: drop-shadow(0 0 10px rgba(0,0,0,0.7));
+        }
+
+        .message-log-area {
+            height: 20%;
+            overflow-y: auto;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 0.9em;
+        }
+        .message-log-area p {
+            margin: 4px 0;
+            line-height: 1.4;
+        }
+         .message-log-area::-webkit-scrollbar {
+            width: 8px;
+        }
+        .message-log-area::-webkit-scrollbar-thumb {
+            background-color: rgba(255,255,255,0.3);
+            border-radius: 4px;
+        }
+
+        .command-area {
+            height: 26%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+        .skills-display {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .skill-slot {
+            background-color: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ddd;
+            padding: 8px 6px;
+            text-align: center;
+            border-radius: 6px;
+            font-size: 0.75em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .skill-slot.highlighted {
+            background-color: #f0ad4e;
+            color: black;
+            border-color: #eea236;
+            transform: scale(1.05);
+        }
+
+        .dice-and-buttons {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dice-display {
+            font-size: 3em;
+            font-weight: bold;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(255,255,255,0.8);
+            color: black;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            transition: transform 0.1s ease-out;
+        }
+        .dice-display.rolling {
+            animation: diceRollAnimation 0.1s infinite;
+        }
+        @keyframes diceRollAnimation {
+            0% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(5deg) scale(1.05); }
+            50% { transform: rotate(-5deg) scale(1.1); }
+            75% { transform: rotate(5deg) scale(1.05); }
+            100% { transform: rotate(0deg) scale(1); }
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-grow: 1;
+            margin-left: 10px;
+        }
+        .action-buttons button {
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            width: 100%;
+        }
+        .action-buttons button:hover:not(:disabled) {
+            background-color: #4cae4c;
+        }
+        .action-buttons button:disabled {
+            background-color: #777;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        #useLuckButton {
+            background-color: #337ab7;
+        }
+        #useLuckButton:hover:not(:disabled) {
+            background-color: #286090;
+        }
+         #confirmSkillButton {
+            background-color: #f0ad4e;
+        }
+        #confirmSkillButton:hover:not(:disabled) {
+            background-color: #eea236;
+        }
+
+        .luck-points-display {
+            text-align: center;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto; /* Changed to auto to allow scrolling if content overflows */
+            background-color: rgba(0,0,0,0.7);
+            /* justify-content: center; /* Removed for scrolling */
+            /* align-items: center; /* Removed for scrolling */
+            padding-top: 20px; /* Add some padding at the top */
+            padding-bottom: 20px; /* Add some padding at the bottom */
+        }
+        .modal-content {
+            background-color: #1e293b; /* Darker blue-gray */
+            margin: auto;
+            padding: 15px;
+            border: 1px solid #4a5568; /* Gray border */
+            width: 90%;
+            max-width: 450px; /* Slightly wider for cards */
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        .modal-content h1 {
+            font-size: 2em; /* Larger title */
+            margin-bottom: 10px;
+            color: #f0ad4e; /* Orange title */
+            font-weight: bold;
+        }
+        .modal-content h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        .modal-content button { /* General button style in modal */
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        
+        /* Character Selection Area */
+        #characterChoices {
+            display: flex;
+            flex-direction: column; /* Stack cards vertically */
+            gap: 15px; /* Space between cards */
+            align-items: center; /* Center cards horizontally */
+            max-height: 70vh; /* Limit height to allow scrolling within modal */
+            overflow-y: auto; /* Allow vertical scrolling for cards */
+            padding-right: 10px; /* For scrollbar */
+        }
+        #characterChoices::-webkit-scrollbar {
+            width: 8px;
+        }
+        #characterChoices::-webkit-scrollbar-thumb {
+            background-color: rgba(255,255,255,0.2);
+            border-radius: 4px;
+        }
+
+
+        .character-card {
+            background-color: rgba(44, 62, 80, 0.85); /* Darker card background */
+            border: 1px solid #374151; /* Darker gray border */
+            border-radius: 8px;
+            padding: 12px;
+            width: 100%; /* Full width within the choices area */
+            max-width: 380px; /* Max card width */
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            text-align: left;
+            color: #e0e0e0; /* Lighter text color */
+            cursor: pointer;
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+        }
+        .character-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .character-card img.card-char-image {
+            width: 100%;
+            max-height: 180px; /* Adjust as needed */
+            object-fit: contain; /* Changed to contain to show full image */
+            border-radius: 6px;
+            margin-bottom: 10px;
+            background-color: rgba(0,0,0,0.2); /* Slight background for transparent PNGs */
+        }
+        .character-card h3.card-char-name {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #f0ad4e; /* Orange name */
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .card-section-title {
+            font-size: 0.9em;
+            font-weight: bold;
+            color: #a0aec0; /* Lighter gray for section titles */
+            margin-top: 10px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid #4a5568;
+            padding-bottom: 3px;
+        }
+        .card-stats p, .card-trait p, .card-skills li {
+            font-size: 0.85em;
+            margin-bottom: 4px;
+            line-height: 1.5;
+        }
+        .card-trait .trait-name {
+            font-weight: bold;
+            color: #cbd5e0;
+        }
+        .card-skills ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .card-skills li {
+            background-color: rgba(0,0,0,0.15);
+            padding: 3px 6px;
+            border-radius: 4px;
+            margin-bottom: 3px;
+        }
+
+
+        .hidden { display: none !important; }
+
+        img[alt]:after {
+            content: attr(alt);
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #333;
+            color: #fff;
+            font-size: 0.8em;
+            text-align: center;
+            padding-top: 20%; 
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div id="opponentInfoArea" class="info-area">
+            <div class="thumbnail">
+                <img id="opponentThumbnail" src="" alt="相手サムネ">
+            </div>
+            <div class="character-stats">
+                <span id="opponentName" class="name">相手キャラ</span>
+                <div class="hp-bar-container">
+                    <div id="opponentHpBar" class="hp-bar"></div>
+                </div>
+                <span id="opponentHpText">HP: ---/---</span>
+                <div id="opponentStatusIcons" class="status-icons"></div>
+            </div>
+        </div>
+
+        <div id="opponentCharacterArea" class="character-display-area">
+            <img id="opponentImage" src="" alt="相手キャラ画像">
+        </div>
+
+        <div id="playerCharacterArea" class="character-display-area">
+            <img id="playerImage" src="" alt="自分キャラ画像">
+        </div>
+
+        <div id="playerInfoArea" class="info-area">
+             <div class="thumbnail">
+                <img id="playerThumbnail" src="" alt="自分サムネ">
+            </div>
+            <div class="character-stats">
+                <span id="playerName" class="name">自分キャラ</span>
+                <div class="hp-bar-container">
+                    <div id="playerHpBar" class="hp-bar"></div>
+                </div>
+                <span id="playerHpText">HP: ---/---</span>
+                <div id="playerStatusIcons" class="status-icons"></div>
+            </div>
+        </div>
+
+        <div id="messageLogArea" class="message-log-area">
+            <p>ゲームへようこそ！</p>
+        </div>
+
+        <div id="commandArea" class="command-area">
+            <div class="skills-display">
+                <div id="skill1" class="skill-slot">技1</div>
+                <div id="skill2" class="skill-slot">技2</div>
+                <div id="skill3" class="skill-slot">技3</div>
+                <div id="skill4" class="skill-slot">技4</div>
+                <div id="skill5" class="skill-slot">技5</div>
+                <div id="skill6" class="skill-slot">技6</div>
+            </div>
+            <div class="dice-and-buttons">
+                <div id="diceDisplay" class="dice-display">?</div>
+                <div class="action-buttons">
+                    <button id="rollDiceButton">サイコロを振る</button>
+                    <button id="confirmSkillButton" class="hidden">この目で技を発動</button>
+                    <button id="useLuckButton" class="hidden">ラック使用 (残: <span id="luckPointsCount">0</span>)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="characterSelectionModal" class="modal" style="display: flex;">
+        <div class="modal-content">
+            <h1>サイコロモンスターズ</h1>
+            <h2>キャラクターを選択してください</h2>
+            <div id="characterChoices">
+                </div>
+        </div>
+    </div>
+
+    <div id="gameOverModal" class="modal">
+        <div class="modal-content">
+            <h2 id="gameOverMessage"></h2>
+            <button id="playAgainButton">もう一度遊ぶ</button>
+        </div>
+    </div>
+
+    <script>
+        // Immediately Invoked Function Expression (IIFE) to avoid global scope pollution
+        (function() {
+            // --- DOM Elements ---
+            const opponentNameEl = document.getElementById('opponentName');
+            const opponentHpBarEl = document.getElementById('opponentHpBar');
+            const opponentHpTextEl = document.getElementById('opponentHpText');
+            const opponentImageEl = document.getElementById('opponentImage');
+            const opponentThumbnailEl = document.getElementById('opponentThumbnail');
+            const opponentStatusIconsEl = document.getElementById('opponentStatusIcons');
+
+            const playerNameEl = document.getElementById('playerName');
+            const playerHpBarEl = document.getElementById('playerHpBar');
+            const playerHpTextEl = document.getElementById('playerHpText');
+            const playerImageEl = document.getElementById('playerImage');
+            const playerThumbnailEl = document.getElementById('playerThumbnail');
+            const playerStatusIconsEl = document.getElementById('playerStatusIcons');
+
+            const messageLogAreaEl = document.getElementById('messageLogArea');
+            const skillSlots = [
+                document.getElementById('skill1'), document.getElementById('skill2'), document.getElementById('skill3'),
+                document.getElementById('skill4'), document.getElementById('skill5'), document.getElementById('skill6')
+            ];
+            const diceDisplayEl = document.getElementById('diceDisplay');
+            const rollDiceButtonEl = document.getElementById('rollDiceButton');
+            const useLuckButtonEl = document.getElementById('useLuckButton');
+            const confirmSkillButtonEl = document.getElementById('confirmSkillButton'); 
+            const luckPointsCountEl = document.getElementById('luckPointsCount'); 
+
+            const characterSelectionModalEl = document.getElementById('characterSelectionModal');
+            const characterChoicesEl = document.getElementById('characterChoices');
+            const gameOverModalEl = document.getElementById('gameOverModal');
+            const gameOverMessageEl = document.getElementById('gameOverMessage');
+            const playAgainButtonEl = document.getElementById('playAgainButton');
+
+            // --- Character Data ---
+            const onImageError = (e) => {
+                e.target.alt = `${e.target.alt.replace('画像', '')}読込失敗`;
+                e.target.style.backgroundColor = '#444';
+                e.target.style.border = '1px dashed #888';
+                e.target.src = 'https://placehold.co/300x225/333333/FFFFFF?text=' + encodeURIComponent(e.target.alt.replace('画像','')); // Adjusted placeholder size
+            };
+            
+            const characters = {
+                volfang: {
+                    id: "volfang", name: "ヴォルファング", imageFile: "images/ヴォルフォング.png", hp: 320, maxHp: 320, speed: 140,
+                    trait: { name: "闘争本能", description: "HPが半分以下で攻撃技の威力微増。", apply: function(self, opponent, game) { if (self.hp <= self.maxHp / 2) game.logMessage(`${self.name}の特性「闘争本能」発動！攻撃力が上がった！`); } },
+                    skills: [
+                        null,
+                        { name: "ひっかく", type: "攻撃", power: 30, description: "鋭い爪で相手をひっかく通常攻撃。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); } },
+                        { name: "遠吠え", type: "補助", description: "戦意を高める遠吠えで、自身の攻撃力を2ターン上げる。", effect: function(self, opponent, game) { game.addStatus(self, {name: "攻撃アップ", turns: 2, type: "buff", stat: "attack", value: 1.2}); } },
+                        { name: "かみくだく", type: "攻撃", power: 50, description: "強靭な顎で相手に噛みつき、ダメージを与える。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); } },
+                        { name: "たいあたり", type: "攻撃", power: 70, recoil: 15, description: "全身で相手に突撃する。自身も少しダメージを受ける。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); game.dealDamage(self, this.recoil, self, true);} },
+                        { name: "ワイルドクロー", type: "攻撃", power: 25, hits: 2, description: "素早い爪攻撃を2回繰り出す。", effect: function(self, opponent, game) { for(let i=0; i<this.hits; i++) { if(opponent.hp > 0) game.dealDamage(opponent, this.power, self);} } },
+                        { name: "ハウリングレイジ", type: "攻撃", power: 100, description: "怒りの咆哮と共に強力な一撃。30%の確率で次のターン動けない。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); if (Math.random() < 0.3) { game.addStatus(self, {name: "行動不能", turns: 1, type: "debuff"}); game.logMessage(`${self.name}は反動で動けない！`); } } },
+                    ]
+                },
+                basaltus: {
+                    id: "basaltus", name: "バサルタス", imageFile: "images/バサルタス.png", hp: 400, maxHp: 400, speed: 80,
+                    trait: { name: "頑強な甲殻", description: "硬い甲殻で物理技のダメージを少し軽減する。", apply: function(self, opponent, game) { /* Effect applied in dealDamage */ } },
+                    skills: [
+                        null,
+                        { name: "ぶつかる", type: "攻撃", power: 25, description: "岩の体で相手にぶつかる通常攻撃。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); } },
+                        { name: "硬くなる", type: "補助", description: "自身の体をさらに硬化させ、防御力を2ターン上げる。", effect: function(self, opponent, game) { game.addStatus(self, {name: "防御アップ", turns: 2, type: "buff", stat: "defense", value: 0.8}); } }, 
+                        { name: "ロックブラスト", type: "攻撃", power: 45, description: "硬い岩の塊を相手に複数回飛ばす。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); } },
+                        { name: "アイアンヘッド", type: "攻撃", power: 60, description: "鋼鉄のような頭で強力な頭突き。20%の確率で相手を怯ませる。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); if (Math.random() < 0.2) { game.addStatus(opponent, {name: "怯み", turns: 1, type: "debuff"}); game.logMessage(`${opponent.name}は怯んで動けない！`); } } },
+                        { name: "ステルスロック改", type: "補助", dotDamage: 15, dotTurns: 3, description: "鋭い岩の破片を相手の場に設置し、3ターンダメージを与える。", effect: function(self, opponent, game) { game.addStatus(opponent, {name: "設置ダメージ", turns: this.dotTurns, type: "dot", damage: this.dotDamage}); } },
+                        { name: "メガトンプレス", type: "攻撃", power: 120, accuracyRoll: 3, description: "超重量のプレス攻撃。命中すれば絶大だが、当たりにくい(サイコロ3以上で命中)。", effect: function(self, opponent, game) { const hitRoll = game.rollDiceInternal(); game.logMessage(`${self.name}のメガトンプレス！ (命中判定サイコロ: ${hitRoll})`); if (hitRoll >= this.accuracyRoll) { game.dealDamage(opponent, this.power, self); } else { game.logMessage(`しかし、技は外れた！`); } } },
+                    ]
+                },
+                lunafox: {
+                    id: "lunafox", name: "ルナフォクス", imageFile: "images/ルナフォクス.png", hp: 280, maxHp: 280, speed: 150,
+                    trait: { name: "月光の加護", description: "月の光の加護を受け、3ターン毎にHPが少し回復する。", apply: function(self, opponent, game) { if (game.turnCount > 0 && game.turnCount % 3 === 0 && game.currentPlayer === self) { game.healDamage(self, 20); game.logMessage(`${self.name}の特性「月光の加護」！HPが少し回復した！`); } } },
+                    skills: [
+                        null,
+                        { name: "サイコウェーブ", type: "攻撃", power: 35, description: "不思議な精神の波で相手を攻撃する。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); } },
+                        { name: "めいそう", type: "回復", heal: 50, description: "精神を集中し、自身のHPを少し回復する。", effect: function(self, opponent, game) { game.healDamage(self, this.heal); } },
+                        { name: "シャドーボール", type: "攻撃", power: 55, description: "影の塊を相手に放つ。20%の確率で相手の攻撃力を下げる。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); if (Math.random() < 0.2) { game.addStatus(opponent, {name: "攻撃ダウン", turns: 2, type: "debuff", stat: "attack", value: 0.8}); game.logMessage(`${opponent.name}の攻撃力が下がった！`); } } },
+                        { name: "つきのひかり", type: "回復", heal: 80, description: "月の光を浴びて、自身のHPを中程度回復する。", effect: function(self, opponent, game) { game.healDamage(self, this.heal); } },
+                        { name: "あやしいひかり", type: "状態異常", description: "幻惑の光で相手を混乱状態にする(2ターン)。", effect: function(self, opponent, game) { game.addStatus(opponent, {name: "混乱", turns: 2, type: "debuff"}); game.logMessage(`${opponent.name}は混乱した！`); } },
+                        { name: "ムーンフォース", type: "攻撃", power: 90, description: "月の神秘的な力で大ダメージ。20%の確率で自身の攻撃力UP。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); if (Math.random() < 0.2) { game.addStatus(self, {name: "攻撃アップ", turns: 2, type: "buff", stat: "attack", value: 1.2}); game.logMessage(`${self.name}の攻撃力が上がった！`); } } },
+                    ]
+                },
+                flaregriffon: {
+                    id: "flaregriffon", name: "フレアグリフォン", imageFile: "images/フレアグリフォン.png", hp: 300, maxHp: 300, speed: 160,
+                    trait: { name: "はやてのつばさ", description: "疾風の翼で、ターン開始時に20%の確率で自身の速さが上がる。", apply: function(self, opponent, game) { if (Math.random() < 0.2 && game.currentPlayer === self) { game.logMessage(`${self.name}の特性「はやてのつばさ」！速さが上がった！`); } } },
+                    skills: [
+                        null,
+                        { name: "つつく", type: "攻撃", power: 30, description: "鋭いくちばしで相手をつつく通常攻撃。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); } },
+                        { name: "ニトロチャージ", type: "攻撃", power: 40, description: "炎を纏って突撃しダメージ。自身の速さが上がる。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); game.logMessage(`${self.name}の「ニトロチャージ」！速さが上がった！`);} },
+                        { name: "エアカッター", type: "攻撃", power: 20, hits: 2, description: "真空の刃を2回放ち、相手を切り裂く。", effect: function(self, opponent, game) { for(let i=0; i<this.hits; i++) { if(opponent.hp > 0) game.dealDamage(opponent, this.power, self);}} },
+                        { name: "かえんほうしゃ", type: "攻撃", power: 65, burnChance: 0.3, burnDamage: 15, burnTurns: 3, description: "灼熱の炎を放射して攻撃。30%の確率で相手をやけど状態にする(3ターン)。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); if (Math.random() < this.burnChance) { game.addStatus(opponent, {name: "やけど", turns: this.burnTurns, type: "dot", damage: this.burnDamage}); game.logMessage(`${opponent.name}はやけどを負った！`); } } },
+                        { name: "おいかぜ", type: "補助", description: "追い風を起こし、3ターンの間、自身の速さを2倍にする。", effect: function(self, opponent, game) { game.logMessage(`${self.name}の「おいかぜ」！速さが大幅に上がった！`); } },
+                        { name: "ブレイブバード", type: "攻撃", power: 110, recoil: 30, description: "命知らずの突撃で超大ダメージ。自身も大きな反動ダメージを受ける。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); game.dealDamage(self, this.recoil, self, true); } },
+                    ]
+                },
+                aquaserpent: {
+                    id: "aquaserpent", name: "アクアサーペント", imageFile: "images/アクアサーペント.png", hp: 350, maxHp: 350, speed: 120,
+                    trait: { name: "うるおいボディ改", description: "潤いに満ちた体で、ターン終了時にHPが少し回復する。", apply: function(self, opponent, game) { if (game.currentPlayer !== self && self.hp > 0) { game.healDamage(self, 15); game.logMessage(`${self.name}の特性「うるおいボディ改」！HPが少し回復した！`); } } },
+                    skills: [
+                        null,
+                        { name: "みずでっぽう", type: "攻撃", power: 30, description: "水の弾を発射する通常攻撃。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); } },
+                        { name: "アクアリング", type: "回復", hotHeal: 20, hotTurns: 3, description: "水のリングを身にまとい、3ターンの間HPが徐々に回復する。", effect: function(self, opponent, game) { game.addStatus(self, {name: "HP継続回復", turns: this.hotTurns, type: "hot", heal: this.hotHeal}); } },
+                        { name: "バブルこうせん", type: "攻撃", power: 45, description: "無数の泡を発射して攻撃。20%の確率で相手の速さを下げる。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); if (Math.random() < 0.2) { game.logMessage(`${opponent.name}の速さが下がった！`); } } },
+                        { name: "りゅうのまい", type: "補助", description: "神秘的な舞で闘争心を高め、自身の攻撃力と速さを上げる。", effect: function(self, opponent, game) { game.addStatus(self, {name: "攻撃アップ", turns: 3, type: "buff", stat: "attack", value: 1.2}); game.logMessage(`${self.name}の攻撃と速さが上がった！`); } },
+                        { name: "だくりゅう", type: "攻撃", power: 60, accuracyRoll: 0.8, description: "濁流を発生させて攻撃。命中しにくいが、30%の確率で相手の命中率を下げる。", effect: function(self, opponent, game) { if (Math.random() < this.accuracyRoll) { game.dealDamage(opponent, this.power, self); if (Math.random() < 0.3) game.logMessage(`${opponent.name}の命中率が下がった！`); } else { game.logMessage(`しかし、技は外れた！`); } } },
+                        { name: "ハイドロポンプ", type: "攻撃", power: 100, accuracyRoll: 2, description: "高圧の水を噴射して大ダメージ。やや命中しにくい(サイコロ2以上で命中)。", effect: function(self, opponent, game) { const hitRoll = game.rollDiceInternal(); game.logMessage(`${self.name}のハイドロポンプ！ (命中判定サイコロ: ${hitRoll})`); if (hitRoll >= this.accuracyRoll) { game.dealDamage(opponent, this.power, self); } else { game.logMessage(`しかし、技は外れた！`); } } },
+                    ]
+                }
+            };
+
+            // --- Game State ---
+            let player, opponent, currentPlayer, turnCount, gameActive, currentDiceRoll;
+            let diceRollInterval = null; 
+
+            // --- Helper function to clone character data correctly ---
+            function cloneCharacter(charId) {
+                const original = characters[charId];
+                if (!original) {
+                    console.error("Character template not found for ID:", charId);
+                    return null;
+                }
+                const cloned = {
+                    id: original.id,
+                    name: original.name,
+                    imageFile: original.imageFile, 
+                    hp: original.maxHp,
+                    maxHp: original.maxHp,
+                    speed: original.speed,
+                    luckPoints: 1, 
+                    statusConditions: [], 
+                    trait: {
+                        name: original.trait.name,
+                        description: original.trait.description,
+                        apply: original.trait.apply 
+                    },
+                    skills: original.skills.map(skill => {
+                        if (skill) { 
+                            return { ...skill }; 
+                        }
+                        return null; 
+                    })
+                };
+                return cloned;
+            }
+
+
+            const game = {
+                logMessage: function(message) {
+                    const p = document.createElement('p');
+                    p.textContent = message;
+                    messageLogAreaEl.appendChild(p);
+                    messageLogAreaEl.scrollTop = messageLogAreaEl.scrollHeight;
+                },
+                updateHpUI: function(character, hpBarEl, hpTextEl) {
+                    if (!character) return; 
+                    const percentage = (character.hp / character.maxHp) * 100;
+                    hpBarEl.style.width = percentage + '%';
+                    hpTextEl.textContent = `HP: ${character.hp} / ${character.maxHp}`;
+                    if (percentage < 25) hpBarEl.className = 'hp-bar low';
+                    else if (percentage < 60) hpBarEl.className = 'hp-bar medium';
+                    else hpBarEl.className = 'hp-bar';
+                },
+                updateCharacterUI: function() {
+                    if (!player || !opponent) return; 
+
+                    playerNameEl.textContent = player.name;
+                    playerImageEl.src = player.imageFile; 
+                    playerImageEl.onerror = onImageError;
+                    playerThumbnailEl.src = player.imageFile; 
+                    playerThumbnailEl.onerror = onImageError;
+                    this.updateHpUI(player, playerHpBarEl, playerHpTextEl);
+                    if (useLuckButtonEl.querySelector('span')) { 
+                        useLuckButtonEl.querySelector('span').textContent = player.luckPoints;
+                    }
+                    this.updateStatusIcons(player, playerStatusIconsEl);
+
+                    opponentNameEl.textContent = opponent.name;
+                    opponentImageEl.src = opponent.imageFile; 
+                    opponentImageEl.onerror = onImageError;
+                    opponentThumbnailEl.src = opponent.imageFile; 
+                    opponentThumbnailEl.onerror = onImageError;
+                    this.updateHpUI(opponent, opponentHpBarEl, opponentHpTextEl);
+                    this.updateStatusIcons(opponent, opponentStatusIconsEl);
+
+                    for (let i = 0; i < 6; i++) {
+                        if (player.skills[i+1]) { 
+                            skillSlots[i].textContent = `${i+1}: ${player.skills[i+1].name}`;
+                            skillSlots[i].title = player.skills[i+1].description;
+                        } else {
+                            skillSlots[i].textContent = `-`;
+                            skillSlots[i].title = "";
+                        }
+                    }
+                },
+                updateStatusIcons: function(character, iconsEl) {
+                    if (!character) return;
+                    iconsEl.innerHTML = ''; 
+                    character.statusConditions.forEach(status => {
+                        const iconSpan = document.createElement('span');
+                        iconSpan.textContent = `${status.name}(${status.turns})`;
+                        iconSpan.title = status.name; 
+                        iconSpan.style.backgroundColor = status.type === 'buff' ? 'rgba(0,255,0,0.2)' : 'rgba(255,0,0,0.2)';
+                        iconSpan.style.padding = '2px 4px';
+                        iconSpan.style.borderRadius = '3px';
+                        iconSpan.style.marginRight = '3px';
+                        iconSpan.style.fontSize = '0.7em';
+                        iconsEl.appendChild(iconSpan);
+                    });
+                },
+                rollDiceInternal: function() { 
+                    return Math.floor(Math.random() * 6) + 1;
+                },
+                _animateDiceRoll: function(isCPU, callback) { 
+                    if (!gameActive) return;
+                    let animationDuration = 1000; 
+                    let animationInterval = 50; 
+                    let elapsed = 0;
+
+                    diceDisplayEl.classList.add('rolling'); 
+                    if (!isCPU) { 
+                        rollDiceButtonEl.disabled = true;
+                        confirmSkillButtonEl.disabled = true;
+                        useLuckButtonEl.disabled = true;
+                    }
+
+                    diceRollInterval = setInterval(() => {
+                        diceDisplayEl.textContent = Math.floor(Math.random() * 6) + 1;
+                        elapsed += animationInterval;
+                        if (elapsed >= animationDuration) {
+                            clearInterval(diceRollInterval);
+                            diceRollInterval = null;
+                            diceDisplayEl.classList.remove('rolling');
+                            callback(); 
+                        }
+                    }, animationInterval);
+                },
+                logSkillDetails: function(skill, diceRoll) {
+                    if (skill) {
+                        let skillInfo = `注目：[${diceRoll}] ${skill.name} (${skill.type})`;
+                        if (skill.power !== undefined) { // Check if power exists
+                            skillInfo += ` - 威力: ${skill.power}`;
+                            if (skill.hits) skillInfo += `x${skill.hits}`;
+                        } else if (skill.heal !== undefined) { // Check if heal exists
+                            skillInfo += ` - 回復量: ${skill.heal}`;
+                        } else if (skill.dotDamage !== undefined && skill.dotTurns !== undefined) {
+                            skillInfo += ` - ${skill.dotDamage}ダメージ/${skill.dotTurns}ターン`;
+                        } else if (skill.hotHeal !== undefined && skill.hotTurns !== undefined) {
+                            skillInfo += ` - ${skill.hotHeal}回復/${skill.hotTurns}ターン`;
+                        }
+                        this.logMessage(skillInfo);
+                        this.logMessage(` > ${skill.description}`);
+                    }
+                },
+
+                rollDice: function() { // Player's roll
+                    if (!gameActive || currentPlayer !== player || diceRollInterval) return; 
+
+                    this.logMessage(`${player.name}がサイコロを振ります...`);
+                    diceDisplayEl.textContent = "?"; 
+
+                    this._animateDiceRoll(false, () => { 
+                        currentDiceRoll = Math.floor(Math.random() * 6) + 1;
+                        diceDisplayEl.textContent = currentDiceRoll;
+                        this.logMessage(`${player.name}はサイコロを振って「${currentDiceRoll}」が出た！`);
+                        
+                        this.logSkillDetails(player.skills[currentDiceRoll], currentDiceRoll);
+                        this.logMessage(`技を発動するか、ラックポイントを使用してください。`);
+
+                        skillSlots.forEach(slot => slot.classList.remove('highlighted'));
+                        if (skillSlots[currentDiceRoll - 1]) {
+                            skillSlots[currentDiceRoll - 1].classList.add('highlighted');
+                        }
+
+                        rollDiceButtonEl.classList.add('hidden');
+                        confirmSkillButtonEl.classList.remove('hidden');
+                        confirmSkillButtonEl.disabled = false;
+                        useLuckButtonEl.classList.remove('hidden');
+                        useLuckButtonEl.disabled = player.luckPoints <= 0;
+                    });
+                },
+                useLuck: function() { // Player's luck usage
+                    if (!gameActive || currentPlayer !== player || player.luckPoints <= 0 || diceRollInterval) return;
+
+                    player.luckPoints--;
+                    this.logMessage(`${player.name}はラックポイントを1使用してサイコロを振り直します...`);
+                    this.updateCharacterUI(); 
+                    diceDisplayEl.textContent = "?";
+
+                    this._animateDiceRoll(false, () => { 
+                        currentDiceRoll = Math.floor(Math.random() * 6) + 1;
+                        diceDisplayEl.textContent = currentDiceRoll;
+                        this.logMessage(`${player.name}の新しい目は「${currentDiceRoll}」だ！`);
+
+                        this.logSkillDetails(player.skills[currentDiceRoll], currentDiceRoll);
+                        
+                        skillSlots.forEach(slot => slot.classList.remove('highlighted'));
+                        if (skillSlots[currentDiceRoll - 1]) {
+                            skillSlots[currentDiceRoll - 1].classList.add('highlighted');
+                        }
+                        
+                        confirmSkillButtonEl.disabled = false; 
+                        useLuckButtonEl.disabled = player.luckPoints <= 0;
+                    });
+                },
+                confirmSkill: function() { // Player confirms skill
+                    if (!gameActive || currentPlayer !== player || currentDiceRoll === undefined || diceRollInterval) return;
+                    
+                    confirmSkillButtonEl.disabled = true;
+                    useLuckButtonEl.disabled = true;
+
+                    this.useSkill(player, opponent, currentDiceRoll);
+                    currentDiceRoll = undefined; 
+
+                    confirmSkillButtonEl.classList.add('hidden');
+                    useLuckButtonEl.classList.add('hidden');
+                },
+                useSkill: function(attacker, defender, diceResult) {
+                    if (!gameActive) return;
+
+                    const skill = attacker.skills[diceResult];
+                    if (skill && typeof skill.effect === 'function') { 
+                        this.logMessage(`${attacker.name}の技「${skill.name}」(${skill.type})が発動！`);
+                        if (attacker === opponent) { 
+                             this.logMessage(` > ${skill.description}`);
+                        }
+                        skill.effect(attacker, defender, this); 
+                        this.updateCharacterUI(); 
+                        if (this.checkGameOver()) return; 
+                        
+                        if (attacker === player) { 
+                           this.endTurn();
+                        }
+                    } else {
+                        this.logMessage(`${attacker.name}の${diceResult}の目に対応する技はありません。`);
+                         if (attacker === player) { 
+                           this.endTurn();
+                        }
+                    }
+                },
+                dealDamage: function(target, amount, attacker, isRecoil = false) {
+                    if (!target || !attacker) return;
+                    let actualDamage = amount;
+                    
+                    if (attacker.id === 'volfang' && attacker.trait.name === "闘争本能" && attacker.hp <= attacker.maxHp / 2 && !isRecoil) {
+                         actualDamage = Math.floor(actualDamage * 1.2); 
+                    }
+
+                    if (target.id === 'basaltus' && target.trait.name === "頑強な甲殻" && !isRecoil) {
+                        actualDamage = Math.max(1, Math.floor(actualDamage * 0.8)); 
+                        this.logMessage(`${target.name}の特性「頑強な甲殻」でダメージが軽減された！`);
+                    }
+                    
+                    const attackBuff = attacker.statusConditions.find(s => s.stat === 'attack' && s.type === 'buff');
+                    if (attackBuff && !isRecoil) actualDamage = Math.floor(actualDamage * attackBuff.value);
+                    
+                    const defenseBuff = target.statusConditions.find(s => s.stat === 'defense' && s.type === 'buff');
+                    if (defenseBuff && !isRecoil) {
+                        actualDamage = Math.floor(actualDamage * defenseBuff.value); 
+                    }
+                    
+                    const attackDebuff = attacker.statusConditions.find(s => s.stat === 'attack' && s.type === 'debuff');
+                    if (attackDebuff && !isRecoil) actualDamage = Math.floor(actualDamage * attackDebuff.value); 
+
+                    actualDamage = Math.max(0, Math.round(actualDamage)); 
+
+                    target.hp = Math.max(0, target.hp - actualDamage);
+                    if (!isRecoil) {
+                        this.logMessage(`${target.name}は ${actualDamage} のダメージを受けた！`);
+                    } else {
+                         this.logMessage(`${attacker.name}は反動で ${actualDamage} のダメージを受けた！`);
+                    }
+                    this.updateHpUI(target, target === player ? playerHpBarEl : opponentHpBarEl, target === player ? playerHpTextEl : opponentHpTextEl);
+                },
+                healDamage: function(target, amount) {
+                    if (!target) return;
+                    target.hp = Math.min(target.maxHp, target.hp + amount);
+                    this.logMessage(`${target.name}のHPが ${amount} 回復した！`);
+                    this.updateHpUI(target, target === player ? playerHpBarEl : opponentHpBarEl, target === player ? playerHpTextEl : opponentHpTextEl);
+                },
+                addStatus: function(character, status) { 
+                    if (!character) return;
+                    const existingStatus = character.statusConditions.find(s => s.name === status.name);
+                    if (existingStatus) {
+                        existingStatus.turns = Math.max(existingStatus.turns, status.turns);
+                    } else {
+                        character.statusConditions.push(JSON.parse(JSON.stringify(status))); 
+                    }
+                    this.updateStatusIcons(character, character === player ? playerStatusIconsEl : opponentStatusIconsEl);
+                },
+                applyEndOfTurnEffects: function(character) {
+                    if (!character || !character.statusConditions) return true; 
+                    const effectsToApply = [...character.statusConditions]; 
+                    
+                    effectsToApply.forEach(status => {
+                        if (!status) return; 
+                        if (status.type === 'dot' && typeof status.damage === 'number') {
+                            this.dealDamage(character, status.damage, character, true); 
+                        }
+                        if (status.type === 'hot' && typeof status.heal === 'number') {
+                            this.healDamage(character, status.heal);
+                        }
+                        status.turns--;
+                    });
+                    character.statusConditions = character.statusConditions.filter(s => s && s.turns > 0);
+                    this.updateStatusIcons(character, character === player ? playerStatusIconsEl : opponentStatusIconsEl);
+                    return true; 
+                },
+                checkGameOver: function() {
+                    if (!player || !opponent) return false;
+                    if (player.hp <= 0) {
+                        this.endGame(`${opponent.name}の勝利！`);
+                        return true;
+                    }
+                    if (opponent.hp <= 0) {
+                        this.endGame(`${player.name}の勝利！`);
+                        return true;
+                    }
+                    return false;
+                },
+                endGame: function(message) {
+                    gameActive = false;
+                    if (diceRollInterval) { 
+                        clearInterval(diceRollInterval);
+                        diceRollInterval = null;
+                        diceDisplayEl.classList.remove('rolling');
+                    }
+                    this.logMessage(message);
+                    this.logMessage("ゲーム終了。");
+                    gameOverMessageEl.textContent = message;
+                    gameOverModalEl.style.display = 'flex';
+                    rollDiceButtonEl.disabled = true;
+                    useLuckButtonEl.disabled = true;
+                    confirmSkillButtonEl.disabled = true;
+                },
+                startTurn: function() {
+                    if (!gameActive) return;
+                    turnCount++;
+                    currentDiceRoll = undefined; 
+                    this.logMessage(`--- ターン ${turnCount} (${currentPlayer.name}) ---`);
+
+                    if (currentPlayer.trait && currentPlayer.trait.apply) {
+                        currentPlayer.trait.apply(currentPlayer, (currentPlayer === player ? opponent : player), this);
+                    }
+                    this.updateCharacterUI(); 
+
+                    const canAct = this.applyPreTurnStatusEffects(currentPlayer);
+                    if (!canAct) { 
+                        this.endTurn(); 
+                        return;
+                    }
+                     if (!gameActive) return; 
+
+                    if (currentPlayer === player && turnCount > 0 && turnCount % 3 === 0) {
+                        if (player.luckPoints < 3) {
+                            player.luckPoints++;
+                            this.logMessage(`${player.name}はラックポイントを1獲得した！ (現在: ${player.luckPoints})`);
+                            this.updateCharacterUI(); 
+                        }
+                    }
+
+                    diceDisplayEl.textContent = '?';
+                    skillSlots.forEach(slot => slot.classList.remove('highlighted'));
+
+                    if (currentPlayer === player) {
+                        rollDiceButtonEl.classList.remove('hidden');
+                        rollDiceButtonEl.disabled = false;
+                        confirmSkillButtonEl.classList.add('hidden');
+                        confirmSkillButtonEl.disabled = true;
+                        useLuckButtonEl.classList.add('hidden');
+                        useLuckButtonEl.disabled = true; 
+                    } else { 
+                        rollDiceButtonEl.classList.add('hidden');
+                        rollDiceButtonEl.disabled = true;
+                        confirmSkillButtonEl.classList.add('hidden');
+                        confirmSkillButtonEl.disabled = true;
+                        useLuckButtonEl.classList.add('hidden');
+                        useLuckButtonEl.disabled = true;
+                        this.cpuTurn(); 
+                    }
+                },
+                applyPreTurnStatusEffects: function(character) {
+                    if (!character || !character.statusConditions) return true;
+                    let canAct = true;
+                    const actionStoppingStatus = character.statusConditions.find(
+                        status => status.name === '麻痺' || status.name === '怯み' || status.name === '行動不能'
+                    );
+
+                    if (actionStoppingStatus && actionStoppingStatus.turns > 0) {
+                        this.logMessage(`${character.name}は${actionStoppingStatus.name}のため、このターンは行動できない！`);
+                        canAct = false;
+                    }
+                    
+                    const confusionStatus = character.statusConditions.find(status => status.name === '混乱');
+                    if (canAct && confusionStatus && confusionStatus.turns > 0 && Math.random() < 0.5) { 
+                        this.logMessage(`${character.name}は混乱して自分を攻撃してしまった！`);
+                        this.dealDamage(character, 20, character, true); 
+                        canAct = false; 
+                        if (this.checkGameOver()) return false; 
+                    }
+                    return canAct;
+                },
+                endTurn: function() {
+                    if (!gameActive) return;
+                    if (currentPlayer === player) {
+                        rollDiceButtonEl.classList.add('hidden');
+                        rollDiceButtonEl.disabled = true;
+                        confirmSkillButtonEl.classList.add('hidden');
+                        confirmSkillButtonEl.disabled = true;
+                        useLuckButtonEl.classList.add('hidden');
+                        useLuckButtonEl.disabled = true;
+                    }
+
+                    this.logMessage(`${currentPlayer.name}のターン終了処理中...`);
+                    this.applyEndOfTurnEffects(currentPlayer); 
+
+                    if (this.checkGameOver()) return;
+
+                    currentPlayer = (currentPlayer === player) ? opponent : player;
+                    this.startTurn();
+                },
+                cpuTurn: function() {
+                    if (!gameActive || !opponent || !player || diceRollInterval) return; 
+                    
+                    this.logMessage(`${opponent.name}がサイコロを振ります...`);
+                    diceDisplayEl.textContent = "?";
+
+                    this._animateDiceRoll(true, () => { 
+                        let cpuDiceResult = Math.floor(Math.random() * 6) + 1;
+                        diceDisplayEl.textContent = cpuDiceResult;
+                        this.logMessage(`${opponent.name}はサイコロを振って「${cpuDiceResult}」が出た！`);
+                        
+                        this.logSkillDetails(opponent.skills[cpuDiceResult], cpuDiceResult);
+
+                        const skillToUse = opponent.skills[cpuDiceResult];
+                        let shouldUseLuck = false;
+                        if (skillToUse) {
+                            if (skillToUse.name === "たいあたり" && opponent.luckPoints > 0 && Math.random() < 0.5) {
+                                shouldUseLuck = true;
+                            }
+                            if (cpuDiceResult <= 2 && opponent.luckPoints > 0 && Math.random() < 0.3) { 
+                                 shouldUseLuck = true;
+                            }
+                        }
+
+                        if (shouldUseLuck) {
+                            opponent.luckPoints--;
+                            this.logMessage(`${opponent.name}はラックポイントを1使用してサイコロを振り直します...`);
+                            diceDisplayEl.textContent = "?"; 
+                            this._animateDiceRoll(true, () => { 
+                                cpuDiceResult = Math.floor(Math.random() * 6) + 1;
+                                diceDisplayEl.textContent = cpuDiceResult;
+                                this.logMessage(`${opponent.name}の新しい目は「${cpuDiceResult}」だ！`);
+                                this.logSkillDetails(opponent.skills[cpuDiceResult], cpuDiceResult);
+                                this.useSkill(opponent, player, cpuDiceResult);
+                                if (gameActive) { this.endTurn(); }
+                            });
+                        } else {
+                            this.useSkill(opponent, player, cpuDiceResult);
+                            if (gameActive) { this.endTurn(); }
+                        }
+                    });
+                },
+                initializeGame: function(playerCharId, opponentCharId) {
+                    player = cloneCharacter(playerCharId);
+                    opponent = cloneCharacter(opponentCharId);
+
+                    if (!player || !opponent) {
+                        this.logMessage("エラー: キャラクターの読み込みに失敗しました。");
+                        characterSelectionModalEl.style.display = 'flex';
+                        return;
+                    }
+                    
+                    turnCount = 0;
+                    gameActive = true;
+                    currentDiceRoll = undefined;
+
+                    messageLogAreaEl.innerHTML = ''; 
+                    this.logMessage("ゲーム開始！");
+                    this.logMessage(`プレイヤー: ${player.name} vs CPU: ${opponent.name}`);
+                    
+                    const playerSpeedRoll = player.speed + Math.random() * 20; 
+                    const opponentSpeedRoll = opponent.speed + Math.random() * 20;
+
+                    if (playerSpeedRoll >= opponentSpeedRoll) {
+                        currentPlayer = player;
+                        this.logMessage(`${player.name}の先行！`);
+                    } else {
+                        currentPlayer = opponent;
+                        this.logMessage(`${opponent.name}の先行！`);
+                    }
+                    
+                    this.updateCharacterUI(); 
+                    characterSelectionModalEl.style.display = 'none';
+                    gameOverModalEl.style.display = 'none';
+
+                    rollDiceButtonEl.classList.remove('hidden');
+                    rollDiceButtonEl.disabled = true; 
+                    confirmSkillButtonEl.classList.add('hidden');
+                    confirmSkillButtonEl.disabled = true;
+                    useLuckButtonEl.classList.add('hidden');
+                    useLuckButtonEl.disabled = true;
+
+                    this.startTurn();
+                },
+
+                setupCharacterSelection: function() {
+                    characterChoicesEl.innerHTML = ''; // Clear previous cards
+                    Object.values(characters).forEach(char => {
+                        const card = document.createElement('div');
+                        card.className = 'character-card';
+                        card.onclick = () => {
+                            const availableOpponents = Object.keys(characters).filter(id => id !== char.id);
+                            const randomOpponentId = availableOpponents[Math.floor(Math.random() * availableOpponents.length)];
+                            this.initializeGame(char.id, randomOpponentId);
+                        };
+
+                        let skillsHtml = '<ul>';
+                        char.skills.forEach((skill, index) => {
+                            if (skill) { // index 0 is null
+                                let skillDetail = `${index}: ${skill.name}`;
+                                if (skill.power) skillDetail += ` (威力:${skill.power})`;
+                                else if (skill.heal) skillDetail += ` (回復:${skill.heal})`;
+                                skillsHtml += `<li>${skillDetail}</li>`;
+                            }
+                        });
+                        skillsHtml += '</ul>';
+
+                        card.innerHTML = `
+                            <img src="${char.imageFile}" alt="${char.name}画像" class="card-char-image" onerror="this.onerror=null; this.src='https://placehold.co/300x225/333333/FFFFFF?text=${encodeURIComponent(char.name)}';">
+                            <h3 class="card-char-name">${char.name}</h3>
+                            <div class="card-stats">
+                                <p>HP: ${char.hp} / ${char.maxHp}</p>
+                                <p>速さ: ${char.speed}</p>
+                            </div>
+                            <div class="card-trait">
+                                <p class="card-section-title">特性</p>
+                                <p><span class="trait-name">${char.trait.name}:</span> ${char.trait.description}</p>
+                            </div>
+                            <div class="card-skills">
+                                <p class="card-section-title">技リスト</p>
+                                ${skillsHtml}
+                            </div>
+                        `;
+                        characterChoicesEl.appendChild(card);
+                    });
+                    characterSelectionModalEl.style.display = 'flex';
+                }
+            };
+
+            // --- Event Listeners ---
+            rollDiceButtonEl.addEventListener('click', () => game.rollDice()); 
+            useLuckButtonEl.addEventListener('click', () => game.useLuck()); 
+            confirmSkillButtonEl.addEventListener('click', () => game.confirmSkill()); 
+            playAgainButtonEl.addEventListener('click', () => game.setupCharacterSelection());
+
+            // --- Initialize ---
+            game.setupCharacterSelection();
+            const bodyStyle = getComputedStyle(document.body);
+            if (!bodyStyle.backgroundImage || bodyStyle.backgroundImage === "none") {
+                 console.warn("背景画像 'images/闘技場.png' の読み込みに失敗したか、指定されていません。");
+                 document.body.style.backgroundColor = "#2c3e50";
+            }
+
+        })();
+    </script>
+</body>
+</html>
