@@ -492,6 +492,7 @@
 
             // --- Sound Files ---
             const sounds = {
+                titleBGM: 'sounds/title_bgm.mp3', 
                 battleBGM: 'sounds/battle_bgm.mp3',
                 diceRoll: 'sounds/dice_roll.mp3',
                 skillAttack: 'sounds/skill_attack.mp3',
@@ -501,22 +502,47 @@
                 lose: 'sounds/lose.mp3'
             };
             let currentBGM = null;
+            let audioContextAllowed = false; 
+
+            function resumeAudioContext() {
+                if (!audioContextAllowed && currentBGM && currentBGM.paused) {
+                    currentBGM.play().then(() => {
+                        audioContextAllowed = true;
+                        console.log("AudioContext resumed and BGM started.");
+                    }).catch(e => console.warn("AudioContext resume failed or BGM play failed:", e));
+                }
+            }
+
 
             function playSoundEffect(soundFile) {
-                try {
-                    const audio = new Audio(soundFile);
-                    audio.play().catch(e => console.warn(`効果音の再生に失敗: ${soundFile}`, e));
-                } catch (e) {
-                    console.warn(`効果音の読み込み/再生エラー: ${soundFile}`, e);
+                if (!audioContextAllowed && !currentBGM) { 
+                    const tempAudio = new Audio(); 
+                    tempAudio.play().then(() => { audioContextAllowed = true; }).catch(()=>{});
+                }
+                if (!audioContextAllowed && soundFile === sounds.diceRoll) {
+                } else {
+                    try {
+                        const audio = new Audio(soundFile);
+                        audio.play().catch(e => console.warn(`効果音の再生に失敗: ${soundFile}`, e));
+                    } catch (e) {
+                        console.warn(`効果音の読み込み/再生エラー: ${soundFile}`, e);
+                    }
                 }
             }
 
             function playBGM(soundFile, loop = true) {
-                stopBGM(); // Stop any existing BGM
+                stopBGM(); 
                 try {
                     currentBGM = new Audio(soundFile);
                     currentBGM.loop = loop;
-                    currentBGM.play().catch(e => console.warn(`BGMの再生に失敗: ${soundFile}`, e));
+                    currentBGM.play().then(() => {
+                        audioContextAllowed = true; 
+                    }).catch(e => {
+                        console.warn(`BGMの再生に失敗: ${soundFile}. User interaction might be required.`, e);
+                        document.body.addEventListener('click', resumeAudioContext, { once: true });
+                        document.body.addEventListener('touchstart', resumeAudioContext, { once: true });
+
+                    });
                 } catch (e) {
                     console.warn(`BGMの読み込み/再生エラー: ${soundFile}`, e);
                 }
@@ -528,10 +554,10 @@
                     currentBGM.currentTime = 0;
                     currentBGM = null;
                 }
+                 document.body.removeEventListener('click', resumeAudioContext);
+                 document.body.removeEventListener('touchstart', resumeAudioContext);
             }
 
-
-            // --- Character Data (imageFile paths are 'images/filename.png') ---
             const onImageError = (e) => {
                 e.target.alt = `${e.target.alt.replace('画像', '')}読込失敗`;
                 e.target.style.backgroundColor = '#444';
@@ -563,7 +589,23 @@
                         { name: "ロックブラスト", type: "攻撃", power: 45, description: "硬い岩の塊を相手に複数回飛ばす。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); } },
                         { name: "アイアンヘッド", type: "攻撃", power: 60, description: "鋼鉄のような頭で強力な頭突き。20%の確率で相手を怯ませる。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); if (Math.random() < 0.2) { game.addStatus(opponent, {name: "怯み", turns: 1, type: "debuff"}); game.logMessage(`${opponent.name}は怯んで動けない！`); } } },
                         { name: "ステルスロック改", type: "補助", dotDamage: 15, dotTurns: 3, description: "鋭い岩の破片を相手の場に設置し、3ターンダメージを与える。", effect: function(self, opponent, game) { game.addStatus(opponent, {name: "設置ダメージ", turns: this.dotTurns, type: "dot", damage: this.dotDamage}); } },
-                        { name: "メガトンプレス", type: "攻撃", power: 120, accuracyRoll: 3, description: "超重量のプレス攻撃。命中すれば絶大だが、当たりにくい(サイコロ3以上で命中)。", effect: function(self, opponent, game) { const hitRoll = game.rollDiceInternal(); game.logMessage(`${self.name}のメガトンプレス！ (命中判定サイコロ: ${hitRoll})`); if (hitRoll >= this.accuracyRoll) { game.dealDamage(opponent, this.power, self); } else { game.logMessage(`しかし、技は外れた！`); } } },
+                        { name: "メガトンプレス", type: "攻撃", power: 120, accuracyRoll: 3, description: "超重量のプレス攻撃。命中すれば絶大だが、当たりにくい(サイコロ3以上で命中)。", effect: function(self, opponent, game) {
+                            game.logMessage(`${self.name}のメガトンプレス！ 命中判定中...`);
+                            game._animateDiceRoll(self === opponent, () => { 
+                                const hitRoll = game.rollDiceInternal();
+                                diceDisplayEl.textContent = hitRoll; // Update main dice display for hit roll
+                                game.logMessage(`命中判定サイコロ: ${hitRoll}`);
+                                if (hitRoll >= this.accuracyRoll) {
+                                    game.logMessage(`命中！`);
+                                    game.dealDamage(opponent, this.power, self);
+                                } else {
+                                    game.logMessage(`しかし、技は外れた！`);
+                                }
+                                game.updateCharacterUI(); 
+                                if (self === opponent && gameActive) { setTimeout(() => game.endTurn(), TURN_TRANSITION_DELAY); }
+                                else if (self === player && gameActive) { setTimeout(() => game.endTurn(), TURN_TRANSITION_DELAY); } 
+                            }, 500); 
+                        }},
                     ]
                 },
                 lunafox: {
@@ -602,7 +644,23 @@
                         { name: "バブルこうせん", type: "攻撃", power: 45, description: "無数の泡を発射して攻撃。20%の確率で相手の速さを下げる。", effect: function(self, opponent, game) { game.dealDamage(opponent, this.power, self); if (Math.random() < 0.2) { game.logMessage(`${opponent.name}の速さが下がった！`); } } },
                         { name: "りゅうのまい", type: "補助", description: "神秘的な舞で闘争心を高め、自身の攻撃力と速さを上げる。", effect: function(self, opponent, game) { game.addStatus(self, {name: "攻撃アップ", turns: 3, type: "buff", stat: "attack", value: 1.2}); game.logMessage(`${self.name}の攻撃と速さが上がった！`); } },
                         { name: "だくりゅう", type: "攻撃", power: 60, accuracyRoll: 0.8, description: "濁流を発生させて攻撃。命中しにくいが、30%の確率で相手の命中率を下げる。", effect: function(self, opponent, game) { if (Math.random() < this.accuracyRoll) { game.dealDamage(opponent, this.power, self); if (Math.random() < 0.3) game.logMessage(`${opponent.name}の命中率が下がった！`); } else { game.logMessage(`しかし、技は外れた！`); } } },
-                        { name: "ハイドロポンプ", type: "攻撃", power: 100, accuracyRoll: 2, description: "高圧の水を噴射して大ダメージ。やや命中しにくい(サイコロ2以上で命中)。", effect: function(self, opponent, game) { const hitRoll = game.rollDiceInternal(); game.logMessage(`${self.name}のハイドロポンプ！ (命中判定サイコロ: ${hitRoll})`); if (hitRoll >= this.accuracyRoll) { game.dealDamage(opponent, this.power, self); } else { game.logMessage(`しかし、技は外れた！`); } } },
+                        { name: "ハイドロポンプ", type: "攻撃", power: 100, accuracyRoll: 2, description: "高圧の水を噴射して大ダメージ。やや命中しにくい(サイコロ2以上で命中)。", effect: function(self, opponent, game) {
+                            game.logMessage(`${self.name}のハイドロポンプ！ 命中判定中...`);
+                            game._animateDiceRoll(self === opponent, () => {
+                                const hitRoll = game.rollDiceInternal();
+                                diceDisplayEl.textContent = hitRoll; // Update main dice display for hit roll
+                                game.logMessage(`命中判定サイコロ: ${hitRoll}`);
+                                if (hitRoll >= this.accuracyRoll) {
+                                    game.logMessage(`命中！`);
+                                    game.dealDamage(opponent, this.power, self);
+                                } else {
+                                    game.logMessage(`しかし、技は外れた！`);
+                                }
+                                game.updateCharacterUI(); 
+                                if (self === opponent && gameActive) { setTimeout(() => game.endTurn(), TURN_TRANSITION_DELAY); }
+                                else if (self === player && gameActive) { setTimeout(() => game.endTurn(), TURN_TRANSITION_DELAY); }
+                            }, 500); 
+                        }},
                     ]
                 }
             };
@@ -610,6 +668,7 @@
             // --- Game State ---
             let player, opponent, currentPlayer, turnCount, gameActive, currentDiceRoll;
             let diceRollInterval = null; 
+            const TURN_TRANSITION_DELAY = 1500; 
 
             // --- Helper function to clone character data correctly ---
             function cloneCharacter(charId) {
@@ -651,7 +710,6 @@
                     messageLogAreaEl.scrollTop = messageLogAreaEl.scrollHeight;
                 },
                 updateHpUI: function(character, hpBarEl, hpTextEl) {
-                    // ... (same as before)
                     if (!character) return; 
                     const percentage = (character.hp / character.maxHp) * 100;
                     hpBarEl.style.width = percentage + '%';
@@ -661,7 +719,6 @@
                     else hpBarEl.className = 'hp-bar';
                 },
                 updateCharacterUI: function() {
-                    // ... (same as before)
                     if (!player || !opponent) return; 
 
                     playerNameEl.textContent = player.name;
@@ -694,7 +751,6 @@
                     }
                 },
                 updateStatusIcons: function(character, iconsEl) {
-                    // ... (same as before)
                      if (!character) return;
                     iconsEl.innerHTML = ''; 
                     character.statusConditions.forEach(status => {
@@ -712,10 +768,10 @@
                 rollDiceInternal: function() { 
                     return Math.floor(Math.random() * 6) + 1;
                 },
-                _animateDiceRoll: function(isCPU, callback) { 
+                _animateDiceRoll: function(isCPU, callback, animationTime = 1000) { 
                     if (!gameActive) return;
-                    playSoundEffect(sounds.diceRoll); // Play dice roll sound
-                    let animationDuration = 1000; 
+                    playSoundEffect(sounds.diceRoll); 
+                    let animationDuration = animationTime; 
                     let animationInterval = 50; 
                     let elapsed = 0;
 
@@ -738,7 +794,6 @@
                     }, animationInterval);
                 },
                 logSkillDetails: function(skill, diceRoll) {
-                    // ... (same as before)
                     if (skill) {
                         let skillInfo = `注目：[${diceRoll}] ${skill.name} (${skill.type})`;
                         if (skill.power !== undefined) { 
@@ -757,7 +812,6 @@
                 },
 
                 rollDice: function() { 
-                    // ... (same as before, _animateDiceRoll already plays sound)
                     if (!gameActive || currentPlayer !== player || diceRollInterval) return; 
 
                     this.logMessage(`${player.name}がサイコロを振ります...`);
@@ -784,7 +838,6 @@
                     });
                 },
                 useLuck: function() { 
-                    // ... (same as before, _animateDiceRoll already plays sound)
                      if (!gameActive || currentPlayer !== player || player.luckPoints <= 0 || diceRollInterval) return;
 
                     player.luckPoints--;
@@ -809,53 +862,53 @@
                     });
                 },
                 confirmSkill: function() { 
-                    // ... (same as before)
                      if (!gameActive || currentPlayer !== player || currentDiceRoll === undefined || diceRollInterval) return;
                     
                     confirmSkillButtonEl.disabled = true;
                     useLuckButtonEl.disabled = true;
 
-                    this.useSkill(player, opponent, currentDiceRoll);
+                    this.useSkill(player, opponent, currentDiceRoll, true); 
                     currentDiceRoll = undefined; 
 
                     confirmSkillButtonEl.classList.add('hidden');
                     useLuckButtonEl.classList.add('hidden');
                 },
-                useSkill: function(attacker, defender, diceResult) {
+                useSkill: function(attacker, defender, diceResult, isPlayerAction = false) {
                     if (!gameActive) return;
                     const skill = attacker.skills[diceResult];
 
                     if (skill && typeof skill.effect === 'function') {
                         this.logMessage(`${attacker.name}の技「${skill.name}」(${skill.type})が発動！`);
-                        if (attacker === opponent) {
+                        if (attacker === opponent) { 
                              this.logMessage(` > ${skill.description}`);
                         }
-                        // Play sound based on skill type
-                        if (skill.type === "攻撃") {
-                            playSoundEffect(sounds.skillAttack);
-                        } else if (skill.type === "回復") {
-                            playSoundEffect(sounds.skillHeal);
-                        }
-                        // Add more conditions for other skill types if needed
-
-                        skill.effect(attacker, defender, this); 
-                        this.updateCharacterUI(); 
-                        if (this.checkGameOver()) return; 
                         
-                        if (attacker === player) { 
-                           this.endTurn();
+                        if (skill.type === "攻撃") playSoundEffect(sounds.skillAttack);
+                        else if (skill.type === "回復") playSoundEffect(sounds.skillHeal);
+
+                        const needsInternalRoll = skill.name === "メガトンプレス" || skill.name === "ハイドロポンプ";
+
+                        if (needsInternalRoll) {
+                            skill.effect(attacker, defender, this); 
+                        } else {
+                            skill.effect(attacker, defender, this);
+                            this.updateCharacterUI(); 
+                            if (this.checkGameOver()) return;
+                            
+                            if (isPlayerAction && attacker === player && gameActive) {
+                                setTimeout(() => this.endTurn(), TURN_TRANSITION_DELAY);
+                            }
                         }
                     } else {
                         this.logMessage(`${attacker.name}の${diceResult}の目に対応する技はありません。`);
-                         if (attacker === player) { 
-                           this.endTurn();
+                         if (isPlayerAction && attacker === player && gameActive) { 
+                           setTimeout(() => this.endTurn(), TURN_TRANSITION_DELAY);
                         }
                     }
                 },
                 dealDamage: function(target, amount, attacker, isRecoil = false) {
-                    // ... (play damage sound)
                     if (!target || !attacker) return;
-                    playSoundEffect(sounds.damage); // Play damage sound
+                    playSoundEffect(sounds.damage); 
                     let actualDamage = amount;
                     
                     if (attacker.id === 'volfang' && attacker.trait.name === "闘争本能" && attacker.hp <= attacker.maxHp / 2 && !isRecoil) {
@@ -889,15 +942,12 @@
                     this.updateHpUI(target, target === player ? playerHpBarEl : opponentHpBarEl, target === player ? playerHpTextEl : opponentHpTextEl);
                 },
                 healDamage: function(target, amount) {
-                    // ... (play heal sound if different from skillHeal)
                     if (!target) return;
-                    // playSoundEffect(sounds.skillHeal); // Already played in useSkill if type is 回復
                     target.hp = Math.min(target.maxHp, target.hp + amount);
                     this.logMessage(`${target.name}のHPが ${amount} 回復した！`);
                     this.updateHpUI(target, target === player ? playerHpBarEl : opponentHpBarEl, target === player ? playerHpTextEl : opponentHpTextEl);
                 },
                 addStatus: function(character, status) { 
-                    // ... (same as before)
                     if (!character) return;
                     const existingStatus = character.statusConditions.find(s => s.name === status.name);
                     if (existingStatus) {
@@ -908,7 +958,6 @@
                     this.updateStatusIcons(character, character === player ? playerStatusIconsEl : opponentStatusIconsEl);
                 },
                 applyEndOfTurnEffects: function(character) {
-                    // ... (same as before)
                     if (!character || !character.statusConditions) return true; 
                     const effectsToApply = [...character.statusConditions]; 
                     
@@ -927,7 +976,6 @@
                     return true; 
                 },
                 checkGameOver: function() {
-                    // ... (same as before)
                      if (!player || !opponent) return false;
                     if (player.hp <= 0) {
                         this.endGame(`${opponent.name}の勝利！`);
@@ -940,12 +988,11 @@
                     return false;
                 },
                 endGame: function(message) {
-                    // ... (stop BGM, play win/lose sound)
                     gameActive = false;
                     stopBGM();
-                    if (player && message.includes(player.name)) { // Player wins (check if player exists)
+                    if (player && message.includes(player.name)) { 
                         playSoundEffect(sounds.win);
-                    } else { // Player loses or game ends for other reasons
+                    } else { 
                         playSoundEffect(sounds.lose);
                     }
 
@@ -963,7 +1010,6 @@
                     confirmSkillButtonEl.disabled = true;
                 },
                 startTurn: function() {
-                    // ... (same as before)
                     if (!gameActive) return;
                     turnCount++;
                     currentDiceRoll = undefined; 
@@ -976,7 +1022,7 @@
 
                     const canAct = this.applyPreTurnStatusEffects(currentPlayer);
                     if (!canAct) { 
-                        this.endTurn(); 
+                        setTimeout(() => this.endTurn(), TURN_TRANSITION_DELAY);
                         return;
                     }
                      if (!gameActive) return; 
@@ -1006,11 +1052,10 @@
                         confirmSkillButtonEl.disabled = true;
                         useLuckButtonEl.classList.add('hidden');
                         useLuckButtonEl.disabled = true;
-                        this.cpuTurn(); 
+                        setTimeout(() => this.cpuTurn(), TURN_TRANSITION_DELAY / 2); 
                     }
                 },
                 applyPreTurnStatusEffects: function(character) {
-                    // ... (same as before)
                     if (!character || !character.statusConditions) return true;
                     let canAct = true;
                     const actionStoppingStatus = character.statusConditions.find(
@@ -1032,7 +1077,6 @@
                     return canAct;
                 },
                 endTurn: function() {
-                    // ... (same as before)
                     if (!gameActive) return;
                     if (currentPlayer === player) {
                         rollDiceButtonEl.classList.add('hidden');
@@ -1047,12 +1091,13 @@
                     this.applyEndOfTurnEffects(currentPlayer); 
 
                     if (this.checkGameOver()) return;
-
-                    currentPlayer = (currentPlayer === player) ? opponent : player;
-                    this.startTurn();
+                    
+                    setTimeout(() => {
+                        currentPlayer = (currentPlayer === player) ? opponent : player;
+                        this.startTurn();
+                    }, TURN_TRANSITION_DELAY);
                 },
                 cpuTurn: function() {
-                    // ... (same as before, _animateDiceRoll plays sound)
                     if (!gameActive || !opponent || !player || diceRollInterval) return; 
                     
                     this.logMessage(`${opponent.name}がサイコロを振ります...`);
@@ -1076,26 +1121,30 @@
                             }
                         }
 
-                        if (shouldUseLuck) {
-                            opponent.luckPoints--;
-                            this.logMessage(`${opponent.name}はラックポイントを1使用してサイコロを振り直します...`);
-                            diceDisplayEl.textContent = "?"; 
-                            this._animateDiceRoll(true, () => { 
-                                cpuDiceResult = Math.floor(Math.random() * 6) + 1;
-                                diceDisplayEl.textContent = cpuDiceResult;
-                                this.logMessage(`${opponent.name}の新しい目は「${cpuDiceResult}」だ！`);
-                                this.logSkillDetails(opponent.skills[cpuDiceResult], cpuDiceResult);
+                        setTimeout(() => {
+                            if (shouldUseLuck) {
+                                opponent.luckPoints--;
+                                this.logMessage(`${opponent.name}はラックポイントを1使用してサイコロを振り直します...`);
+                                diceDisplayEl.textContent = "?"; 
+                                this._animateDiceRoll(true, () => { 
+                                    cpuDiceResult = Math.floor(Math.random() * 6) + 1;
+                                    diceDisplayEl.textContent = cpuDiceResult;
+                                    this.logMessage(`${opponent.name}の新しい目は「${cpuDiceResult}」だ！`);
+                                    this.logSkillDetails(opponent.skills[cpuDiceResult], cpuDiceResult);
+                                    this.useSkill(opponent, player, cpuDiceResult);
+                                    const needsInternalRollReroll = opponent.skills[cpuDiceResult] && (opponent.skills[cpuDiceResult].name === "メガトンプレス" || opponent.skills[cpuDiceResult].name === "ハイドロポンプ");
+                                    if (gameActive && !needsInternalRollReroll) { setTimeout(() => this.endTurn(), TURN_TRANSITION_DELAY); }
+                                }, 800); 
+                            } else {
                                 this.useSkill(opponent, player, cpuDiceResult);
-                                if (gameActive) { this.endTurn(); }
-                            });
-                        } else {
-                            this.useSkill(opponent, player, cpuDiceResult);
-                            if (gameActive) { this.endTurn(); }
-                        }
-                    });
+                                const needsInternalRoll = opponent.skills[cpuDiceResult] && (opponent.skills[cpuDiceResult].name === "メガトンプレス" || opponent.skills[cpuDiceResult].name === "ハイドロポンプ");
+                                if (gameActive && !needsInternalRoll) { setTimeout(() => this.endTurn(), TURN_TRANSITION_DELAY); }
+                            }
+                        }, 1000); 
+
+                    }, 1200); 
                 },
                 initializeGame: function(playerCharId, opponentCharId) {
-                    // ... (play BGM)
                     player = cloneCharacter(playerCharId);
                     opponent = cloneCharacter(opponentCharId);
 
@@ -1109,7 +1158,8 @@
                     gameActive = true;
                     currentDiceRoll = undefined;
 
-                    playBGM(sounds.battleBGM, true); // Start BGM
+                    stopBGM(); 
+                    playBGM(sounds.battleBGM, true); 
 
                     messageLogAreaEl.innerHTML = ''; 
                     this.logMessage("ゲーム開始！");
@@ -1121,32 +1171,44 @@
                     if (playerSpeedRoll >= opponentSpeedRoll) {
                         currentPlayer = player;
                         this.logMessage(`${player.name}の先行！`);
+                        this.updateCharacterUI(); 
+                        characterSelectionModalEl.style.display = 'none';
+                        gameOverModalEl.style.display = 'none';
+                        rollDiceButtonEl.classList.remove('hidden');
+                        rollDiceButtonEl.disabled = true; 
+                        confirmSkillButtonEl.classList.add('hidden');
+                        confirmSkillButtonEl.disabled = true;
+                        useLuckButtonEl.classList.add('hidden');
+                        useLuckButtonEl.disabled = true;
+                        this.startTurn(); 
                     } else {
                         currentPlayer = opponent;
                         this.logMessage(`${opponent.name}の先行！`);
+                        this.updateCharacterUI(); 
+                        characterSelectionModalEl.style.display = 'none';
+                        gameOverModalEl.style.display = 'none';
+                        rollDiceButtonEl.classList.add('hidden'); 
+                        rollDiceButtonEl.disabled = true;
+                        confirmSkillButtonEl.classList.add('hidden');
+                        confirmSkillButtonEl.disabled = true;
+                        useLuckButtonEl.classList.add('hidden');
+                        useLuckButtonEl.disabled = true;
+                        setTimeout(() => this.startTurn(), TURN_TRANSITION_DELAY); // Delay CPU's first turn start
                     }
-                    
-                    this.updateCharacterUI(); 
-                    characterSelectionModalEl.style.display = 'none';
-                    gameOverModalEl.style.display = 'none';
-
-                    rollDiceButtonEl.classList.remove('hidden');
-                    rollDiceButtonEl.disabled = true; 
-                    confirmSkillButtonEl.classList.add('hidden');
-                    confirmSkillButtonEl.disabled = true;
-                    useLuckButtonEl.classList.add('hidden');
-                    useLuckButtonEl.disabled = true;
-
-                    this.startTurn();
                 },
 
                 setupCharacterSelection: function() {
-                    // ... (same as before)
+                    stopBGM(); 
+                    playBGM(sounds.titleBGM, true); 
+
                     characterChoicesEl.innerHTML = ''; 
                     Object.values(characters).forEach(char => {
                         const card = document.createElement('div');
                         card.className = 'character-card';
                         card.onclick = () => {
+                            if (!audioContextAllowed && currentBGM && currentBGM.paused) {
+                                resumeAudioContext();
+                            }
                             const availableOpponents = Object.keys(characters).filter(id => id !== char.id);
                             const randomOpponentId = availableOpponents[Math.floor(Math.random() * availableOpponents.length)];
                             this.initializeGame(char.id, randomOpponentId);
@@ -1190,9 +1252,17 @@
             useLuckButtonEl.addEventListener('click', () => game.useLuck()); 
             confirmSkillButtonEl.addEventListener('click', () => game.confirmSkill()); 
             playAgainButtonEl.addEventListener('click', () => {
-                stopBGM(); // Stop BGM before restarting
                 game.setupCharacterSelection();
             });
+            
+            function initialUserInteractionListener() {
+                resumeAudioContext();
+                document.body.removeEventListener('click', initialUserInteractionListener);
+                document.body.removeEventListener('touchstart', initialUserInteractionListener);
+            }
+            document.body.addEventListener('click', initialUserInteractionListener, { once: true });
+            document.body.addEventListener('touchstart', initialUserInteractionListener, { once: true });
+
 
             // --- Initialize ---
             game.setupCharacterSelection();
